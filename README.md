@@ -1,6 +1,6 @@
 # PES-VCS — Version Control System Lab Report
-**Name:** Ramal  
-**SRN:** PESXUG24AM219  
+**Name:** Ramalakshmi M N 
+**SRN:** PES1UG24AM219  
 **Repository:** PESXUG24AM219-pes-vcs
 
 ---
