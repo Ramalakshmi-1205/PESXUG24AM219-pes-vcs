@@ -60,10 +60,6 @@
 
 ---
 
-## Integration Test
-
-### Screenshot — `make test-integration`
-
 ---
 
 ## Analysis Questions — Branching
