@@ -1,4 +1,4 @@
- // object.c — Content-addressable object store
+// object.c — Content-addressable object store
 //
 // Every piece of data (file contents, directory listings, commits) is stored
 // as an "object" named by its SHA-256 hash. Objects are stored under
@@ -57,6 +57,12 @@ int object_exists(const ObjectID *id) {
     return access(path, F_OK) == 0;
 }
 
+// ─── Helper: ensure .pes/objects directory exists ────────────────────────────
+
+static void ensure_objects_dir(void) {
+    mkdir(OBJECTS_DIR, 0755);
+}
+
 // ─── TODO: Implement these ───────────────────────────────────────────────────
 
 int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out) {
@@ -84,6 +90,9 @@ int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out
         free(full_obj);
         return 0;
     }
+
+    // Ensure .pes/objects exists before creating shard subdir
+    ensure_objects_dir();
 
     char hex[HASH_HEX_SIZE + 1];
     hash_to_hex(id_out, hex);
@@ -117,7 +126,6 @@ int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out
 }
 
 int object_read(const ObjectID *id, ObjectType *type_out, void **data_out, size_t *len_out) {
-    // Step 1: Build path and read entire file into memory
     char path[512];
     object_path(id, path, sizeof(path));
 
@@ -136,35 +144,35 @@ int object_read(const ObjectID *id, ObjectType *type_out, void **data_out, size_
     }
     fclose(f);
 
-    // Step 2: Integrity check — recompute hash and compare to expected
+    // Integrity check — recompute hash and compare
     ObjectID computed;
     compute_hash(raw, (size_t)file_size, &computed);
     if (memcmp(computed.hash, id->hash, HASH_SIZE) != 0) {
         free(raw);
-        return -1; // corrupted object
+        return -1;
     }
 
-    // Step 3: Find '\0' separating header from data
+    // Find '\0' separating header from data
     uint8_t *null_byte = memchr(raw, '\0', (size_t)file_size);
     if (!null_byte) { free(raw); return -1; }
 
-    // Step 4: Parse type string from header
+    // Parse type string from header
     if      (strncmp((char *)raw, "blob ",   5) == 0) *type_out = OBJ_BLOB;
     else if (strncmp((char *)raw, "tree ",   5) == 0) *type_out = OBJ_TREE;
     else if (strncmp((char *)raw, "commit ", 7) == 0) *type_out = OBJ_COMMIT;
     else { free(raw); return -1; }
 
-    // Step 5: Extract data portion (everything after '\0')
+    // Extract data portion (everything after '\0')
     size_t data_offset = (size_t)(null_byte - raw) + 1;
     size_t data_len    = (size_t)file_size - data_offset;
 
-    void *data = malloc(data_len + 1);
-    if (!data) { free(raw); return -1; }
-    memcpy(data, raw + data_offset, data_len);
-    ((uint8_t *)data)[data_len] = '\0';
+    void *out_data = malloc(data_len + 1);
+    if (!out_data) { free(raw); return -1; }
+    memcpy(out_data, raw + data_offset, data_len);
+    ((uint8_t *)out_data)[data_len] = '\0';
 
     free(raw);
-    *data_out = data;
+    *data_out = out_data;
     *len_out  = data_len;
     return 0;
 }
